@@ -18,7 +18,7 @@ sbit lopen=P1^7;      //L8
 sbit lcd7=P2^3;
 sbit Rebuild=P2^4;
 sbit emergency=P3^2;
-sbit Set=P2^3;//wifi配置air
+//sbit Set=P2^3;        //wifi配置air
 sbit cc=P2^2; 
 sbit aa=P3^3;        //motor
 sbit bb=P3^4;
@@ -33,8 +33,8 @@ bit flag1;		//定时时间到标志
 uchar counter;		//计数器
 bit in1=0, in2=0, in3=0, in4=0, up1=0, up2=0, up3=0, down2=0, down3=0, down4=0;	//KEY
 uchar code table[]={0xf9, 0xa4,0xb0,0x99,  0xa1, 0xc1, 0xff};        //楼层显示码表，一共是四层 0xc1=u
-uchar code stop[]={0x92,0x87,0xc0,0x8c};         //stop显示
-sfr T2MOD = 0xC9;
+uchar code stop[]={0xc0,0x8e};         //off显示
+sfr T2MOD = 0xC9;								//寄存器T2MOD定义
 
 
 
@@ -130,19 +130,16 @@ void display(){
 void display1(){
 		PB=0xff;
 		PA=0xfe;
-		PB=stop[3];
+		PB=stop[1];
 		delay(2);
-								PB=0xff;
-                PA=0xfd;
-                PB=stop[0];
-                delay(2);
+
 					PB=0xff;
           PA=0xfb;
-          PB=stop[1];
+          PB=stop[0];
           delay(2);
 		PB=0xff;
     PA=0xf7;
-    PB=stop[2];
+    PB=stop[1];
     delay(2);
 }
 
@@ -279,6 +276,7 @@ void Control_Mcu()
 			{
 				up1=1;
 				lup1=0;
+				
 			}
 			else 
 				
@@ -287,6 +285,7 @@ void Control_Mcu()
 			if(usartbuf[10]==0x02){
 				up2=1;
 				lup2=0;
+				
 			}
 			else
 				
@@ -296,6 +295,7 @@ void Control_Mcu()
 				{
 				down2=1;
 				ldown2=0;
+				
 				}
 			else 
 			
@@ -305,6 +305,7 @@ void Control_Mcu()
 				
 				up3=1;
 				lup3=0;
+				
 			}
 			else 
 				
@@ -314,6 +315,7 @@ void Control_Mcu()
 			{
 				down3=1;
 				ldown3=0;
+				
 			}
 			else 
 				
@@ -323,6 +325,7 @@ void Control_Mcu()
 				{
 				down4=1;
 				ldown4=0;
+
 				}
 			else 
 				
@@ -336,8 +339,10 @@ void Control_Mcu()
 		case 0x80:
 			if(usartbuf[10]==0x80)
 				test=1;
+			
 			else 
 				test=0;
+				lup1=1;lup2=1;lup3=1;ldown2=1;ldown3=1;ldown4=1;
 			break;
 	}
 }
@@ -347,7 +352,7 @@ void Usart_Communication()
 	uchar i,checksum,sn,send_8_dev;//i循环，checksum校验和，sn包序号，send_8_dev，设备当前状态，send_7_error错误信息
 	if(num_usart==10)
 	{
-		ET2=0;
+		ET2=0;        //定时器2允许中断
 		num_usart=0;
 		usarrtflag=1;
 		REN=0;
@@ -374,7 +379,16 @@ void Usart_Communication()
 				if(usartbuf[3]=0x06&&usartbuf[8]==0x02)
 				{
 					mcu_send3[5]=sn;
-					send_8_dev=~P1;
+//					send_8_dev=~P1;
+					send_8_dev=0x00;
+					send_8_dev|=(uchar)up1<<0;
+					send_8_dev|=(uchar)up2<<1;
+					send_8_dev|=(uchar)down2<<2;
+					send_8_dev|=(uchar)up3<<3;
+					send_8_dev|=(uchar)down3<<4;
+					send_8_dev|=(uchar)down4<<5;
+					send_8_dev|=(uchar)buzzer<<6;
+					send_8_dev|=(uchar)test<<7;
 					mcu_send3[9]=send_8_dev;
 					for(i=2;i<10;i++)
 					{
@@ -399,7 +413,16 @@ void Usart_Communication()
 					Usart_SendArrang(mcu_send2,9);			//mcu回复
 
 					mcu_send4[5]=sn;
-					send_8_dev=~P1;
+	//				send_8_dev=~P1;
+					send_8_dev=0x00;
+					send_8_dev|=(uchar)up1<<0;
+					send_8_dev|=(uchar)up2<<1;
+					send_8_dev|=(uchar)down2<<2;
+					send_8_dev|=(uchar)up3<<3;
+					send_8_dev|=(uchar)down3<<4;
+					send_8_dev|=(uchar)down4<<5;
+					send_8_dev|=(uchar)buzzer<<6;
+					send_8_dev|=(uchar)test<<7;
 					mcu_send4[9]=send_8_dev;
 					for(i=2;i<10;i++)
 					{
@@ -472,24 +495,7 @@ void Usart_Communication()
 		
 	}	
 }
-///********key_scan*****************/
-//void key_scan()
-//{
-//		if(emergency==0)//判断S3是否被按下
-//		{
-//			delay(20);//按键消抖
-//			if(emergency==0)
-//			{
-//				  buzzer=~buzzer;
-////				Usart_SendArrang(mcu_send11,9);
-//	//			Usart_SendArrang(mcu_send6,10);
-//				
-//				while(!emergency);//松手检测
-//			}	
-//		}
-//		
-//		
-//	}	
+
 		
 void main()
 {
@@ -499,20 +505,22 @@ void main()
 		flag=1;
 		flag1=0;
 		COM=0x43;			//intialize 8155
+	
 		TMOD=0x21;		   //定义定时器0/1为定时器模式 定时器1工作方式2
 		EA=1;				  //开总中断
 		EX0=1;   //开启外部中断0
-		IT0=1;
 		buzzer=0;
 		sound=0;
 		
 		ES=1;//打开串口中断
-		SM0 = 0;	SM1 = 1;//串口工作方式1,8位UART波特率可变
+		SM0 = 0;	
+		SM1 = 1;//串口工作方式1,8位UART波特率可变
 		REN = 1;//串口允许接收
-		TR1 = 1;//启动定时器1
-	//	TMOD=0x20;					//定时器1工作方式2
+		
+
 		TH1 = 0xfd;
 		TL1 = 0xfd;//设置比特率9600
+		
 		
 		RCAP2H=(65536-10000)/256;
 		RCAP2L=(65536-10000)%256;
@@ -520,10 +528,12 @@ void main()
 		TL2=RCAP2L;
 		T2CON=0;			//配置定时器2控制寄存器，这里其实不用配置，T2CON上电默认就是0
 		T2MOD=0;			//配置定时器2工作模式寄存器，这里其实不用配置，T2MOD上电默认就是0
-		//IE=0xA0;			//1010 0000开总中断，开外定时器2中断，可按位操作：EA=1; ET2=1;
-		TR2=1;         //启动定时器T2
+
 		ET2=1;        //定时器T2中断允许
-		
+		/****************TOCN*****************/
+		IT0=1;         //外部中断触发方式负跳变有效
+		TR1 = 1;       // 启动波特率发生器1
+		TR2=1;         //启动定时器T2
 
 	//Usart_SendArrang(mcu_send6,10);
 	
@@ -541,6 +551,7 @@ void main()
 						Stop_Rotation();
 						lopen=0;
 						run();			//按键扫描三秒钟
+
 						lopen=1;
 						in1=0;		//如果in1和up1被按下则无效
 					
@@ -570,7 +581,7 @@ void main()
 					}
 					else{
 						statepre=state;
-                        flag=2;
+            flag=2;
 						keyscan();
 						display();
 					}
@@ -581,8 +592,8 @@ void main()
 					if(state!=statepre)
                     {                          //如果前后两次状态不一样则可能需要开门
                      	if(!(
-							((flag==1)&&(in3|up3|down3)&&(~up2)&&(~in2))		   //去三楼
-							||((flag==1)&&(in4|down4)&&(~up2)&&(~in2))		   //去四楼
+														((flag==1)&&(in3|up3|down3)&&(~up2)&&(~in2))		   //去三楼
+														||((flag==1)&&(in4|down4)&&(~up2)&&(~in2))		   //去四楼
                             ||((flag==0)&&(in1||up1)&&(~down2)&&(~in2))		   //去一楼
                             )
                           )
@@ -591,7 +602,7 @@ void main()
 								Stop_Rotation();
 								lopen=0;
 								run();				//按键扫描三秒钟
-														 
+			 
 								lopen=1;
 								in2=0;				//如果in2被按下则无效
 						
@@ -603,16 +614,16 @@ void main()
 								down2=0;
 								ldown2=1;
 								}
-                         	}
+              }
 					}
                                         else{									//在二楼停
                                         	if(down2|up2){
                                                 	down2=0;
                                                         up2=0;
 																												
-                                                        lopen=0;
-                                                        run();
-                                                        lopen=1;
+//                                                        lopen=0;
+//                                                        run();
+//                                                        lopen=1;
                                                         ldown2=1;
                                                         lup2=1;
                                                 	}
@@ -676,8 +687,8 @@ void main()
 					if(state!=statepre)
                     {                          //如果前后两次状态不一样则可能需要开门
                      	if(!(
-							((flag==0)&&(in2|up2|down2)&&(~up3)&&(~in3))		   //去二楼
-							||((flag==1)&&(in4|down4)&&(~up3)&&(~in3))		   //去四楼
+														((flag==0)&&(in2|up2|down2)&&(~up3)&&(~in3))		   //去二楼
+														||((flag==1)&&(in4|down4)&&(~up3)&&(~in3))		   //去四楼
                             ||((flag==0)&&(in1||up1)&&(~down3)&&(~in2))		   //去一楼
                             )
                           )
@@ -685,8 +696,11 @@ void main()
 								
 								Stop_Rotation();						 
 								lopen=0;
-								run();				//按键扫描三秒钟
+								
+														 run();				//按键扫描三秒钟
+
 								lopen=1;
+								
 								in3=0;				//如果in3被按下则无效
 						
 								if(flag==1){			//如果上行，电梯外上行指示灯按下无效
@@ -695,17 +709,17 @@ void main()
 								}
 								else{				//如果下行，电梯外下行指示灯按下无效
 								down3=0;
-								ldown2=1;
+								ldown3=1;
 								}
-                         	}
+              }
 					}
                                         else{									//在三楼停
                                         	if(down3|up3){
                                                 	down3=0;
                                                         up3=0;
-                                                        lopen=0;
-                                                        run();
-                                                        lopen=1;
+//                                                        lopen=0;
+//                                                        run();
+//                                                        lopen=1;
                                                         ldown3=1;
                                                         lup3=1;
                                                 	}
@@ -732,7 +746,7 @@ void main()
 							statepre=3;
 						 }
 						 else{
-							Stop_Rotation();
+
 						 	statepre=state;
               flag=2;
 						 	keyscan();
@@ -782,9 +796,9 @@ void main()
                                         	if(down4){
                                                 	down4=0;
                                                         ldown4=1;
-                                                        lopen=0;
-                                                        run();
-                                                        lopen=1;
+//                                                        lopen=0;
+//                                                        run();
+//                                                        lopen=1;
                                                 }
                                         }
                                         in4=0;
